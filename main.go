@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
+	"image"
+	_ "image/png"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -14,12 +16,18 @@ const VERSION = "0.1"
 const PROGRAM_NAME = "MultiSnake"
 
 type PlayerConfig struct {
-	Color    uint32
+	Color uint32
+
 	Name     string
 	KeyUp    string
 	KeyDown  string
 	KeyLeft  string
 	KeyRight string
+
+	ControllerKeyUp    string
+	ControllerKeyDown  string
+	ControllerKeyLeft  string
+	ControllerKeyRight string
 }
 
 type GameConfig struct {
@@ -35,6 +43,8 @@ type GameConfig struct {
 	SuperFoodColor  uint32
 	SuperFoodScore  uint32
 	Obstacles       []string
+	ObstaclesColor  uint32
+	CycleBorder     bool
 }
 
 type Point struct {
@@ -49,14 +59,15 @@ type Snake struct {
 	name                              string
 	keyUp, keyDown, keyLeft, keyRight sdl.Keycode
 	sdlColor                          sdl.Color
+	lost                              bool
 }
 
 var config GameConfig
 var players []Snake
 var food []Point
 
-func readConfig() {
-	jsonFile, err := os.Open("config.json")
+func readConfig(configFile string) {
+	jsonFile, err := os.Open(configFile)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +83,7 @@ func readConfig() {
 	}
 }
 
-func initGame() {
+func (g *Game) initGame() {
 	players = make([]Snake, len(config.Players))
 	for i := 0; i < len(config.Players); i++ {
 		pc := config.Players[i]
@@ -89,11 +100,12 @@ func initGame() {
 				B: uint8(pc.Color >> 8 & 0xFF),
 				A: uint8(pc.Color & 0xFF),
 			},
+			lost: false,
 		}
 		players[i].parts = make([]Point, 5)
 		for j := 0; j < 5; j++ {
 			if j == 0 {
-				players[i].parts[0] = randomPoint()
+				players[i].parts[0] = g.randomPoint()
 			} else {
 				players[i].parts[j].x = players[i].parts[j-1].x + players[i].direction.x
 				players[i].parts[j].y = players[i].parts[j-1].y + players[i].direction.y
@@ -102,7 +114,10 @@ func initGame() {
 	}
 	food = make([]Point, config.Food)
 	for i := uint32(0); i < config.Food; i++ {
-		food[i] = randomPoint()
+		food[i] = g.randomPoint()
+	}
+	if len(config.Obstacles) > 0 {
+		g.obstacles = readObstacles(config.Obstacles[0])
 	}
 }
 
@@ -110,11 +125,31 @@ func randomRasterPoint(max int32) int32 {
 	return (rand.Int31n(max) / config.FieldSize) * config.FieldSize
 }
 
-func randomPoint() Point {
-	return Point{
+func (g *Game) randomPoint() Point {
+	p := Point{
 		x: randomRasterPoint(config.Width),
 		y: randomRasterPoint(config.Height),
 	}
+	for idx := range g.obstacles {
+		if g.obstacles[idx] == p {
+			return g.randomPoint()
+		}
+	}
+
+	for idx := range food {
+		if food[idx] == p {
+			return g.randomPoint()
+		}
+	}
+
+	for idx := range players {
+		for pidx := range players[idx].parts {
+			if players[idx].parts[pidx] == p {
+				return g.randomPoint()
+			}
+		}
+	}
+	return p
 }
 
 type Game struct {
@@ -122,12 +157,46 @@ type Game struct {
 	window      *sdl.Window
 	gameRunning bool
 	font        *ttf.Font
+	obstacles   []Point
 }
 
-func main() {
-	readConfig()
+func
+main() {
+	configFile := ""
+	if len(os.Args) == 1 {
+		configFile = "config.json"
+	} else {
+		configFile = os.Args[1]
+	}
+	readConfig(configFile)
 	var g Game
 	g.run()
+}
+
+func readObstacles(imagePath string) []Point {
+	var points []Point
+	infile, err := os.Open(imagePath)
+	if err != nil {
+		panic(err)
+	}
+	defer infile.Close()
+
+	src, _, err := image.Decode(infile)
+	if err != nil {
+		panic(err)
+	}
+
+	maxWidth := config.Width / config.FieldSize
+	maxHeight := config.Height / config.FieldSize
+	for x := int32(0); x < maxWidth; x++ {
+		for y := int32(0); y < maxHeight; y++ {
+			r, g, b, _ := src.At(int(x), int(y)).RGBA()
+			if r == 0 && g == 0 && b == 0 {
+				points = append(points, Point{x * config.FieldSize, y * config.FieldSize})
+			}
+		}
+	}
+	return points
 }
 
 func (g *Game) run() {
@@ -174,7 +243,7 @@ func (g *Game) run() {
 				if !g.gameRunning {
 					println("Game starts!")
 					g.gameRunning = true
-					initGame()
+					g.initGame()
 					continue
 				} else {
 					g.handlePlayerKey(t.Keysym.Sym)
@@ -207,14 +276,21 @@ func (g *Game) run() {
 			for index, _ := range players {
 				g.forward(&players[index], index)
 			}
+
+			for idx := range players {
+				g.drawPlayer(&players[idx])
+			}
+
+			for idx := range g.obstacles {
+				g.drawRect(g.obstacles[idx], config.ObstaclesColor)
+			}
+
+			g.drawFood()
+			g.drawScore()
+			g.decideWinner()
 		} else {
 			g.drawMessage("Pressed a key to start")
 		}
-		for idx := range players {
-			g.drawPlayer(&players[idx])
-		}
-		g.drawFood()
-		g.drawScore()
 		g.window.UpdateSurface()
 		sdl.Delay(100)
 	}
@@ -268,15 +344,36 @@ func (g *Game) handlePlayerController(a int32) {
 }
 
 func (g *Game) drawPlayer(current *Snake) {
+	if current.lost {
+		return
+	}
 	for _, part := range current.parts {
 		g.drawRect(part, current.color)
 	}
 }
 
 func (g *Game) forward(current *Snake, index int) {
+	if current.lost {
+		return
+	}
+
 	head := current.parts[len(current.parts)-1]
 	newHead := Point{x: head.x + current.direction.x,
 		y: head.y + current.direction.y,
+	}
+	if config.CycleBorder {
+		if newHead.x < 0 {
+			newHead.x = config.Width - config.FieldSize
+		}
+		if newHead.y < 0 {
+			newHead.y = config.Height - config.FieldSize
+		}
+		if newHead.x > config.Width {
+			newHead.x = newHead.x - config.Width
+		}
+		if newHead.y > config.Height {
+			newHead.y = newHead.y - config.Height
+		}
 	}
 	current.parts = append(current.parts, newHead)
 
@@ -284,7 +381,7 @@ func (g *Game) forward(current *Snake, index int) {
 	for idx, f := range food {
 		if newHead.x == f.x && newHead.y == f.y {
 			foodHit = true
-			food[idx] = randomPoint()
+			food[idx] = g.randomPoint()
 			current.score += 10
 		}
 	}
@@ -293,8 +390,17 @@ func (g *Game) forward(current *Snake, index int) {
 	}
 
 	if newHead.x < 0 || newHead.y < 0 || newHead.x > config.Width || newHead.y > config.Height {
-		g.drawMessage(fmt.Sprintf("Player %s lost\n", current.name))
-		g.gameRunning = false
+		current.lost = true
+		//g.drawMessage(fmt.Sprintf("Player %s lost\n", current.name))
+		//g.gameRunning = false
+	}
+
+	for i := 0; i < len(g.obstacles); i++ {
+		if newHead == g.obstacles[i] {
+			current.lost = true
+			//g.drawMessage(fmt.Sprintf("Player %s lost\n", current.name))
+			//g.gameRunning = false
+		}
 	}
 
 	//collision with other player
@@ -302,8 +408,9 @@ func (g *Game) forward(current *Snake, index int) {
 		for pidx, otherPart := range other.parts {
 			if idx != index || pidx != len(current.parts)-1 {
 				if otherPart == newHead {
-					g.drawMessage(fmt.Sprintf("Player %s lost\n", current.name))
-					g.gameRunning = false
+					current.lost = false
+					//g.drawMessage(fmt.Sprintf("Player %s lost\n", current.name))
+					//g.gameRunning = false
 				}
 			}
 		}
@@ -321,5 +428,31 @@ func (g *Game) drawRect(p Point, color uint32) {
 	err := g.surface.FillRect(&rect, color)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func (g *Game) decideWinner() {
+	singlePlayer := len(config.Players) == 1
+	lastSurvived := -1
+	activePlayers := 0
+	for i := 0; i < len(players); i++ {
+		if !players[i].lost {
+			activePlayers++
+			lastSurvived = i
+		}
+	}
+
+	if singlePlayer && activePlayers == 0 {
+		g.drawMessage(fmt.Sprintf("%s looses", players[0].name))
+		g.gameRunning = false
+	}
+	if !singlePlayer && activePlayers <= 1 {
+		if lastSurvived >= 0 {
+			g.drawMessage(fmt.Sprintf("%s looses", players[lastSurvived].name))
+		} else {
+			//TODO decide on score
+			g.drawMessage(fmt.Sprintf("%s looses", players[lastSurvived].name))
+		}
+		g.gameRunning = false
 	}
 }

@@ -9,10 +9,23 @@
       "KeyDown": "DOWN",
       "KeyLeft": "LEFT",
       "KeyRight": "RIGHT"
+    },
+    {
+      "Name": "me",
+      "Color": 6000017,
+      "KeyUp": "w",
+      "KeyDown": "s",
+      "KeyLeft": "a",
+      "KeyRight": "d"
     }
   ],
+  "CycleBorder": true,
   "Food": 5,
   "FieldSize": 10,
   "FoodColor": 4278190335,
-  "BackgroundColor": 3435973887
+  "BackgroundColor": 3435973887,
+  "Obstacles": [
+    "obstacles.png"
+  ],
+  "ObstaclesColor": 0
 }
