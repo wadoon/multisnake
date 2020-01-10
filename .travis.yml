@@ -5,7 +5,7 @@ go:
   - tip
 
 install:
-  - apt install libsdl2{,-image,-mixer,-ttf,-gfx}-dev
+  - sudo apt install libsdl2{,-image,-mixer,-ttf,-gfx}-dev
 
 script:
   - go build
