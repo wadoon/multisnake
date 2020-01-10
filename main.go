@@ -27,9 +27,13 @@ type GameConfig struct {
 	Height          int32
 	Players         []PlayerConfig
 	BackgroundColor uint32
-	Food            uint32
 	FieldSize       int32
+	Food            uint32
 	FoodColor       uint32
+	FoodScore       uint32
+	SuperFood       uint32
+	SuperFoodColor  uint32
+	SuperFoodScore  uint32
 }
 
 type Point struct {
@@ -43,6 +47,7 @@ type Snake struct {
 	score                             uint
 	name                              string
 	keyUp, keyDown, keyLeft, keyRight sdl.Keycode
+	sdlColor                          sdl.Color
 }
 
 var config GameConfig
@@ -78,6 +83,11 @@ func initGame() {
 			keyLeft:   sdl.GetKeyFromName(pc.KeyLeft),
 			keyRight:  sdl.GetKeyFromName(pc.KeyRight),
 			direction: Point{config.FieldSize, 0},
+			sdlColor: sdl.Color{R: uint8(pc.Color >> 24 & 0xff),
+				G: uint8(pc.Color >> 16 & 0xFF),
+				B: uint8(pc.Color >> 8 & 0xFF),
+				A: uint8(pc.Color & 0xFF),
+			},
 		}
 		players[i].parts = make([]Point, 5)
 		for j := 0; j < 5; j++ {
@@ -169,6 +179,26 @@ func (g *Game) run() {
 					g.handlePlayerKey(t.Keysym.Sym)
 				}
 				break
+			case *sdl.JoyHatEvent:
+				t.Value
+				switch t.Value {
+				case sdl.HAT_LEFTUP:
+				case sdl.HAT_UP:
+				case sdl.HAT_RIGHTUP:
+
+				case sdl.HAT_RIGHT:
+
+				case sdl.HAT_RIGHTDOWN:
+
+				case sdl.HAT_DOWN:
+
+				case sdl.HAT_LEFTDOWN:
+
+				case sdl.HAT_LEFT:
+
+				case sdl.HAT_CENTERED:
+
+				}
 			}
 		}
 
@@ -184,7 +214,7 @@ func (g *Game) run() {
 			g.drawPlayer(&players[idx])
 		}
 		g.drawFood()
-
+		g.drawScore()
 		g.window.UpdateSurface()
 		sdl.Delay(100)
 	}
@@ -198,6 +228,18 @@ func (g *Game) drawMessage(content string) {
 		_ = text.Blit(nil, g.surface,
 			&sdl.Rect{X: 400 - (text.W / 2), Y: 300 - (text.H / 2),
 				W: 0, H: 0})
+	}
+}
+
+func (g *Game) drawScore() {
+	for i := 0; i < len(players); i++ {
+		text, err := g.font.RenderUTF8Blended(fmt.Sprintf("%s %d", players[i].name, players[i].score),
+			players[i].sdlColor)
+		defer text.Free()
+		if err == nil {
+			_ = text.Blit(nil, g.surface,
+				&sdl.Rect{X: int32(100 + 100*i), Y: 25, W: 0, H: 0})
+		}
 	}
 }
 
@@ -219,6 +261,10 @@ func (g *Game) handlePlayerKey(sym sdl.Keycode) {
 			players[idx].direction = Point{config.FieldSize, 0}
 		}
 	}
+}
+
+func (g *Game) handlePlayerController(a int32) {
+
 }
 
 func (g *Game) drawPlayer(current *Snake) {
