@@ -1,0 +1,18 @@
+{
+  "Width": 800,
+  "Height": 800,
+  "Players": [
+    {
+      "Name": "me",
+      "Color": 620691711,
+      "KeyUp": "UP",
+      "KeyDown": "DOWN",
+      "KeyLeft": "LEFT",
+      "KeyRight": "RIGHT"
+    }
+  ],
+  "Food": 5,
+  "FieldSize": 10,
+  "FoodColor": 4278190335,
+  "BackgroundColor": 3435973887
+}
