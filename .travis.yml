@@ -1,7 +1,6 @@
 language: go
 
 go:
-  - 1.2.2
   - tip
 
 install:
@@ -9,4 +8,5 @@ install:
   - sudo apt-get install libsdl2{,-image,-mixer,-ttf,-gfx}-dev
 
 script:
+  - go get
   - go build
