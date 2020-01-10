@@ -34,6 +34,7 @@ type GameConfig struct {
 	SuperFood       uint32
 	SuperFoodColor  uint32
 	SuperFoodScore  uint32
+	Obstacles       []string
 }
 
 type Point struct {
@@ -180,7 +181,6 @@ func (g *Game) run() {
 				}
 				break
 			case *sdl.JoyHatEvent:
-				t.Value
 				switch t.Value {
 				case sdl.HAT_LEFTUP:
 				case sdl.HAT_UP:
