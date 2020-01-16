@@ -31,26 +31,45 @@ type PlayerConfig struct {
 }
 
 type GameConfig struct {
-	Width           int32
-	Height          int32
-	Players         []PlayerConfig
+	// the width in pixels of the game area
+	Width int32
+	// the height in pixels of the game area
+	Height int32
+
+	//Settings for each player. Length of the array determines the number of players
+	Players []PlayerConfig
+	//Background color of the game arena
 	BackgroundColor uint32
-	FieldSize       int32
-	Food            uint32
-	FoodColor       uint32
-	FoodScore       uint32
-	SuperFood       uint32
-	SuperFoodColor  uint32
-	SuperFoodScore  uint32
-	Obstacles       []string
-	ObstaclesColor  uint32
-	CycleBorder     bool
+	//Size of a cell in the raster. Used to make snake and objects bigger
+	FieldSize int32
+	//number of foods on the arena
+	Food uint32
+	//Color of the food
+	FoodColor uint32
+	//increment of the score, when eating a food
+	FoodScore uint32
+	//number of special food cells on the field
+	SuperFood uint32
+	//color of the special food
+	SuperFoodColor uint32
+	//increment of the score for eating a special food
+	SuperFoodScore uint32
+	//List of b/w PNG images, which describes the obstacle in the game arena
+	//The of the images need to be Width/FieldSize x Height/FieldSize.
+	//In this example the PNG is 80x80 pixels.
+	//Obstacles are randomly chosen at game start.
+	Obstacles      []string
+	ObstaclesColor uint32 //Color of the obstacles
+	//If a snake leaves the arena, it will appear on the opposite side
+	CycleBorder bool
 }
 
+// A Point within the game arena.
 type Point struct {
 	x, y int32
 }
 
+//The snake object of a player.
 type Snake struct {
 	parts                             []Point
 	direction                         Point
@@ -160,8 +179,7 @@ type Game struct {
 	obstacles   []Point
 }
 
-func
-main() {
+func main() {
 	configFile := ""
 	if len(os.Args) == 1 {
 		configFile = "config.json"
